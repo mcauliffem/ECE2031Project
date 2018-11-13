@@ -92,6 +92,7 @@ Main:
 
 	; To turn to that angle using the movement API, just store
 	; the angle into the "desired theta" variable.
+	ADDI -7
 	STORE  DTheta
 	CALL   Wait1
 	CALL   Wait1
@@ -118,6 +119,7 @@ Main:
 	LOAD FSlow
 	OUT  RVELCMD
 	OUT  LVELCMD
+chairs:
 	;turn on forward sensor
 	LOAD   Mask2
 	OR	   Mask3
@@ -174,7 +176,7 @@ close:
 	OUT RVELCMD
  	OUT LVELCMD
  	
- 	SEI   &B0010
+ 	SEI   &B0010 		; re-enable
  	
  	IN DIST5
  	SUB initialdist
@@ -200,13 +202,13 @@ close:
 ; 	JZERO pluscheck
 ; 	
 pluscheck:
-	ADDI -100
+	ADDI -100000
 	JNEG wall
 	JZERO wall
 	JPOS notwall
 
 minuscheck:
-	ADDI 100
+	ADDI 100000
 	JNEG notwall
 	JZERO wall
 	JPOS wall
@@ -217,14 +219,84 @@ wall:
 	ADDI &HFFFF
 	OUT SSEG1
 	OUT SSEG2
+	;implement wall crawl
+	LOAD   Mask5
+	OR Mask2
+	OR Mask3
+	OR Mask4
+	OUT    SONAREN
+	CLI    &B0010      ; disable the movement API interrupt
+	
+drivestraight:
+ 	IN DIST5
+ 	SUB bufferdist
+max:
+	ADDI -1
+	SUB FFast
+	JPOS addback
+	JZERO addback
+	ADDI 1
+	ADD FFast
+ 	OUT LVELCMD
+ 	ADD FFast
+mod:
+	SUB FMid
+	JPOS mod
+	ADD FMid
+	OUT RVELCMD
+s4:	
+	IN DIST4
+	ADDI -300
+	JPOS s2
+	LOAD FMid
+	OUT RVELCMD
+	LOAD RMid
+	OUT LVELCMD
+s2:
+	IN DIST2
+	ADDI -500
+	JPOS s3
+	LOAD FMid
+	OUT RVELCMD
+	LOAD RMid
+	OUT LVELCMD
+s3:
+	IN DIST3
+	ADDI -500
+	JPOS drivestraight
+	LOAD FMid
+	OUT RVELCMD
+	LOAD RMid
+	OUT LVELCMD
+	JUMP s4
+ 	
+ 	
+ 	JUMP drivestraight
+ 	
+ 	
+ 	
+	SEI   &B0010 		; re-enable
 	JUMP InfLoop
 
+addback:
+	ADD FFast
+	JUMP max
+	
+	
+	
 notwall:
 	;turn 90 and drive (or other edge case implementation)
 	LOAD ZERO
 	OUT SSEG1
 	OUT SSEG2
-	JUMP InfLoop
+	IN THETA
+	ADDI 90
+	CALL Mod360
+	STORE DTheta
+	CALL Wait1
+	CALL Wait1
+	CALL wait1
+	JUMP chairs
 
 
 	
@@ -245,13 +317,22 @@ InfLoop:
 	LOAD ZERO
 	OUT RVELCMD
 	OUT LVELCMD
-	JUMP   InfLoop
+infloop1:
+	JUMP   InfLoop1
 	; note that the movement API will still be running during this
 	; infinite loop, because it uses the timer interrupt.
 
 bufferdist: DW &H0140
 initialdist: DW &H0000
 counter: DW &H0002
+
+Waitsmaller:
+	OUT    TIMER
+Wloop2:
+	IN     TIMER
+	ADDI   -3
+	JNEG   Wloop2
+	RETURN
 
 
 ; AcquireData will turn the robot counterclockwise and record
