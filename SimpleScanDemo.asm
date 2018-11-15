@@ -126,7 +126,7 @@ chairs:
 	OUT    SONAREN
 	;check forward distance
 fdistcheck:
-	LOAD FSlow
+	LOAD FMid
 	OUT  RVELCMD
 	OUT  LVELCMD
 	IN 	  DIST2
@@ -159,6 +159,8 @@ close:
 	CALL Wait1
 	CALL wait1
 	
+	JUMP wall
+	
 	; check if the object is a wall
 	LOAD   Mask5
 	OUT    SONAREN
@@ -180,6 +182,7 @@ close:
  	
  	IN DIST5
  	SUB initialdist
+ 	
  	JPOS pluscheck
  	JNEG minuscheck
  	JZERO pluscheck
@@ -221,15 +224,62 @@ wall:
 	OUT SSEG2
 	;implement wall crawl
 	LOAD   Mask5
+	OR Mask0
+	OR Mask1
 	OR Mask2
 	OR Mask3
 	OR Mask4
 	OUT    SONAREN
 	CLI    &B0010      ; disable the movement API interrupt
-	
+	IN THETA
+	STORE deg
+	OUT TIMER
 drivestraight:
+	CLI &B0010
+	IN TIMER
+	ADDI -55
+	;JPOS checkangle
+; 	IN THETA
+; 	SUB deg
+; 	CALL absv
+; 	LOAD val
+; 	ADDI -180
+; 	JNEG continue
+; 	ADDI -180
+; 	CALL absv
+; 	LOAD val
+; continue:	
+; 	ADD difdegree
+; 	STORE difdegree
+; 	OUT SSEG2
+; 	ADDI -250
+; 	JPOS InfLoop
+; 	IN THETA
+; 	STORE deg
+	
  	IN DIST5
  	SUB bufferdist
+ 	
+ 	JPOS curveright
+ 	JNEG curveleft
+ 	LOAD FMid
+ 	OUT RVELCMD
+ 	OUT LVELCMD
+ 	JUMP s1
+ curveleft:
+ 	LOAD FMid
+ 	ADDI 90
+ 	OUT RVELCMD
+ 	ADDI -150
+ 	OUT LVELCMD
+ 	JUMP s1
+ curveright:
+ 	LOAD FMid
+ 	ADDI -90
+ 	OUT RVELCMD
+ 	ADDI 120
+ 	OUT LVELCMD
+ 	JUMP s1
 max:
 	ADDI -1
 	SUB FFast
@@ -244,31 +294,79 @@ mod:
 	JPOS mod
 	ADD FMid
 	OUT RVELCMD
+	CALL waitsmaller
+	LOAD FMid
+	OUT RVELCMD
+	OUT LVELCMD
+	
+s1:
+	IN DIST1
+	ADDI -800
+	JPOS s0
+	IN DIST5
+	ADDI -10000
+	JNEG s0
+	JUMP InfLoop
+	
+s0:
+	IN DIST0
+	ADDI -800
+	JPOS s4
+	IN DIST5
+	ADDI -1000
+	JNEG s4
+	JUMP InfLoop
+	
 s4:	
 	IN DIST4
-	ADDI -300
+	ADDI -600
 	JPOS s2
-	LOAD FMid
+	SEI &B0010
+	IN THETA
+	STORE deg
+	OUT TIMER
+	LOAD ZERO
 	OUT RVELCMD
-	LOAD RMid
 	OUT LVELCMD
+	IN THETA
+	ADDI 30
+	CALL Mod360
+	STORE DTheta
+	CALL Wait1
+	
 s2:
 	IN DIST2
-	ADDI -500
+	ADDI -400
 	JPOS s3
-	LOAD FMid
+	SEI &B0010
+	IN THETA
+	STORE deg
+	OUT TIMER
+	LOAD ZERO
 	OUT RVELCMD
-	LOAD RMid
 	OUT LVELCMD
+	IN THETA
+	ADDI 30
+	CALL Mod360
+	STORE DTheta
+	CALL Wait1
 s3:
 	IN DIST3
-	ADDI -500
+	ADDI -400
 	JPOS drivestraight
-	LOAD FMid
+	SEI &B0010
+	IN THETA
+	STORE deg
+	OUT TIMER
+	LOAD ZERO
 	OUT RVELCMD
-	LOAD RMid
 	OUT LVELCMD
-	JUMP s4
+	IN THETA
+	ADDI 30
+	CALL Mod360
+	STORE DTheta
+	CALL Wait1
+	JUMP s1
  	
  	
  	JUMP drivestraight
@@ -298,7 +396,18 @@ notwall:
 	CALL wait1
 	JUMP chairs
 
-
+checkangle:
+	IN THETA
+	SUB deg
+	JNEG skipinv
+	JZERO skipinv
+	ADDI 360
+skipinv:
+	ADDI -270
+	JPOS InfLoop
+	OUT TIMER
+	JUMP drivestraight
+	
 	
 	
 	
@@ -325,6 +434,9 @@ infloop1:
 bufferdist: DW &H0140
 initialdist: DW &H0000
 counter: DW &H0002
+difdegree: DW 0
+deg: DW 0
+val: DW 0
 
 Waitsmaller:
 	OUT    TIMER
@@ -332,6 +444,16 @@ Wloop2:
 	IN     TIMER
 	ADDI   -3
 	JNEG   Wloop2
+	RETURN
+	
+absv:
+	STORE val
+	JPOS done
+	JNEG done
+	SUB val
+	SUB val
+	STORE val
+done:
 	RETURN
 
 
