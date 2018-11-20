@@ -98,7 +98,9 @@ Main:
 	CALL   Wait1
 	CALL   Wait1
 
-
+;$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+; our modifications are mainly within the dollar signs (lines 101-471)
+; a few parts are unused and should be marked as such in nearby comments
 	;;;;;;;;;;;;;;;;;;INSERT NEW CODE HERE;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	;	wait for turn to complete 						:)			;
 	;	drive until front sensor value is ~0x140 mm 	:)			;
@@ -106,9 +108,9 @@ Main:
 	;	store angle in DTheta 							:)			;
 	;	wait for turn to complete 						:)			;
 	;	write call to drive forward and backwards and take sensor	;
-	;		reading 									:/			;
-	;	check readings to see if it is a wall 						;
-	;	if it is a wall: 											;
+	;		reading 									X)			;
+	;	check readings to see if it is a wall 			X)			;
+	;	if it is a wall: 								8)			;
 	;		write wall follower function to get to goal 			;
 	;		write function to check if in goal 						;
 	;	if not a wall: 												;
@@ -126,6 +128,7 @@ chairs:
 	OUT    SONAREN
 	;check forward distance
 fdistcheck:
+; drive until close to wall
 	LOAD FMid
 	OUT  RVELCMD
 	OUT  LVELCMD
@@ -134,13 +137,13 @@ fdistcheck:
 	OUT   SSEG1
 	SUB   bufferdist
 	JNEG  close
-	
+
 	IN    DIST3
 	STORE initialdist
 	OUT   SSEG2
 	SUB   bufferdist
 	JPOS  fdistcheck
-	
+
 	; within buffer distance of the wall
 close:
 	LOAD   ZERO
@@ -149,7 +152,7 @@ close:
 	LOAD ZERO
 	OUT RVELCMD
 	OUT LVELCMD
-	
+
 	; turn the bot to the left
 	IN THETA
 	ADDI 90
@@ -158,17 +161,17 @@ close:
 	CALL Wait1
 	CALL Wait1
 	CALL wait1
-	
+; ignore wall check and go straight to following
 	JUMP wall
-	
+
 	; check if the object is a wall
 	LOAD   Mask5
 	OUT    SONAREN
 	IN DIST5
 	STORE initialdist
-	
+
 	CLI    &B0010      ; disable the movement API interrupt
-	
+
 
 	LOAD FMid
  	OUT RVELCMD
@@ -177,18 +180,18 @@ close:
  	LOAD ZERO
 	OUT RVELCMD
  	OUT LVELCMD
- 	
+
  	SEI   &B0010 		; re-enable
- 	
+
  	IN DIST5
  	SUB initialdist
- 	
+
  	JPOS pluscheck
  	JNEG minuscheck
  	JZERO pluscheck
-	
-	
-	
+
+
+
 ; checkwall:
 ; 	LOAD FMid
 ; 	OUT RVELCMD
@@ -203,7 +206,7 @@ close:
 ; 	JPOS pluscheck
 ; 	JNEG minuscheck
 ; 	JZERO pluscheck
-; 	
+;
 pluscheck:
 	ADDI -100000
 	JNEG wall
@@ -216,13 +219,16 @@ minuscheck:
 	JZERO wall
 	JPOS wall
 
+; JUMPed to here from turn at closest object
 wall:
 	;YAY!!! do wall crawl
+	; print to ssegs to show following wall
 	LOAD ZERO
 	ADDI &HFFFF
 	OUT SSEG1
 	OUT SSEG2
 	;implement wall crawl
+	; turn on ultrasonic sensors
 	LOAD   Mask5
 	OR Mask0
 	OR Mask1
@@ -234,6 +240,7 @@ wall:
 	IN THETA
 	STORE deg
 	OUT TIMER
+	; drive straight forward along the wall
 drivestraight:
 	CLI &B0010
 	IN TIMER
@@ -248,7 +255,7 @@ drivestraight:
 ; 	ADDI -180
 ; 	CALL absv
 ; 	LOAD val
-; continue:	
+; continue:
 ; 	ADD difdegree
 ; 	STORE difdegree
 ; 	OUT SSEG2
@@ -256,17 +263,20 @@ drivestraight:
 ; 	JPOS InfLoop
 ; 	IN THETA
 ; 	STORE deg
-	
+
+	; check the sensor on the right
  	IN DIST5
  	SUB bufferdist
- 	
+ 	; determine how to correct L/R/straight
  	JPOS curveright
  	JNEG curveleft
+ 	;Straight
  	LOAD FMid
  	OUT RVELCMD
  	OUT LVELCMD
  	JUMP s1
  curveleft:
+ ; left
  	LOAD FMid
  	ADDI 90
  	OUT RVELCMD
@@ -274,12 +284,14 @@ drivestraight:
  	OUT LVELCMD
  	JUMP s1
  curveright:
+ ;right
  	LOAD FMid
  	ADDI -90
  	OUT RVELCMD
  	ADDI 120
  	OUT LVELCMD
  	JUMP s1
+ ; this code is ignored currently, jump to ***********
 max:
 	ADDI -1
 	SUB FFast
@@ -298,8 +310,12 @@ mod:
 	LOAD FMid
 	OUT RVELCMD
 	OUT LVELCMD
-	
+
+; **************
+; check sensors to determine action
 s1:
+;front left sensor, could be goal
+	;check against buffer 800 and stop if right sensor is blank
 	IN DIST1
 	ADDI -800
 	JPOS s0
@@ -307,8 +323,10 @@ s1:
 	ADDI -10000
 	JNEG s0
 	JUMP InfLoop
-	
+
 s0:
+;left sensor, could be goal
+	;check against buffer 800 and stop if right sensor is blank
 	IN DIST0
 	ADDI -800
 	JPOS s4
@@ -316,12 +334,15 @@ s0:
 	ADDI -1000
 	JNEG s4
 	JUMP InfLoop
-	
-s4:	
+
+s4:
+;right front, could be turning into a wall
+	;check against buffer 600 and turn if too close
 	IN DIST4
 	ADDI -600
 	JPOS s2
 	SEI &B0010
+	; turn using the Theta movement command
 	IN THETA
 	STORE deg
 	OUT TIMER
@@ -332,9 +353,12 @@ s4:
 	ADDI 30
 	CALL Mod360
 	STORE DTheta
+	; wait so turn has time to happen
 	CALL Wait1
-	
+
 s2:
+;front sensor, could be driving into a wall
+	;check against buffer 400 and turn if too close
 	IN DIST2
 	ADDI -400
 	JPOS s3
@@ -351,8 +375,11 @@ s2:
 	STORE DTheta
 	CALL Wait1
 s3:
+;front sensor, could be driving into a wall
+	;check against buffer 400 and turn if too close
 	IN DIST3
 	ADDI -400
+	; this is the sensor check exit condition
 	JPOS drivestraight
 	SEI &B0010
 	IN THETA
@@ -366,22 +393,18 @@ s3:
 	CALL Mod360
 	STORE DTheta
 	CALL Wait1
+	; keep checking until a sensor doesn't see the object anymore
 	JUMP s1
- 	
- 	
+
+;unused **************************
  	JUMP drivestraight
- 	
- 	
- 	
 	SEI   &B0010 		; re-enable
 	JUMP InfLoop
 
 addback:
 	ADD FFast
 	JUMP max
-	
-	
-	
+
 notwall:
 	;turn 90 and drive (or other edge case implementation)
 	LOAD ZERO
@@ -407,21 +430,9 @@ skipinv:
 	JPOS InfLoop
 	OUT TIMER
 	JUMP drivestraight
-	
-	
-	
-	
-	
-	
-	
-	
+;**********************************
 
-
-
-
-
-
-
+;stop robot and loop infinitly, it should be in goal state now
 InfLoop:
 	LOAD ZERO
 	OUT RVELCMD
@@ -431,6 +442,7 @@ infloop1:
 	; note that the movement API will still be running during this
 	; infinite loop, because it uses the timer interrupt.
 
+;Variables we use
 bufferdist: DW &H0140
 initialdist: DW &H0000
 counter: DW &H0002
@@ -438,6 +450,7 @@ difdegree: DW 0
 deg: DW 0
 val: DW 0
 
+; Functions we use
 Waitsmaller:
 	OUT    TIMER
 Wloop2:
@@ -445,7 +458,7 @@ Wloop2:
 	ADDI   -3
 	JNEG   Wloop2
 	RETURN
-	
+
 absv:
 	STORE val
 	JPOS done
@@ -455,7 +468,7 @@ absv:
 	STORE val
 done:
 	RETURN
-
+;$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 ; AcquireData will turn the robot counterclockwise and record
 ; 360 sonar values in memory.  The movement API must be disabled
@@ -1086,8 +1099,8 @@ Wloop:
 	ADDI   -10         ; 1 second at 10Hz.
 	JNEG   Wloop
 	RETURN
-	
-	
+
+
 Waitsmall:
 	OUT    TIMER
 Wloop1:
@@ -1096,7 +1109,7 @@ Wloop1:
 	ADDI   -30
 	JNEG   Wloop1
 	RETURN
-	
+
 
 ; This subroutine will get the battery voltage,
 ; and stop program execution if it is too low.
