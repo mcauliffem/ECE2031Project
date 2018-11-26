@@ -124,7 +124,9 @@ Main:
 chairs:
 	;turn on forward sensor
 	LOAD   Mask2
+	OR 	Mask1
 	OR	   Mask3
+	OR Mask4
 	OUT    SONAREN
 	;check forward distance
 fdistcheck:
@@ -135,6 +137,14 @@ fdistcheck:
 	IN 	  DIST2
 	STORE initialdist
 	OUT   SSEG1
+	SUB   bufferdist
+	JNEG  close
+	
+	IN 	  DIST1
+	SUB   bufferdist
+	JNEG  close
+	
+	IN 	  DIST4
 	SUB   bufferdist
 	JNEG  close
 
@@ -155,7 +165,7 @@ close:
 
 	; turn the bot to the left
 	IN THETA
-	ADDI 90
+	ADDI 110
 	CALL Mod360
 	STORE DTheta
 	CALL Wait1
